@@ -180,6 +180,7 @@ class Api:
         self.add_api_route("/sdapi/v1/extra-batch-images", self.extras_batch_images_api, methods=["POST"], response_model=models.ExtrasBatchImagesResponse)
         self.add_api_route("/sdapi/v1/png-info", self.pnginfoapi, methods=["POST"], response_model=models.PNGInfoResponse)
         self.add_api_route("/sdapi/v1/progress", self.progressapi, methods=["GET"], response_model=models.ProgressResponse)
+        self.add_api_route("/sdapi/v1/progress2", self.progressapi2, methods=["GET"], response_model=models.ProgressResponse2)
         self.add_api_route("/sdapi/v1/interrogate", self.interrogateapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/interrupt", self.interruptapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/skip", self.skip, methods=["POST"])
@@ -312,6 +313,7 @@ class Api:
 
         args = vars(populate)
         args.pop('script_name', None)
+        args.pop('user_token', None)
         args.pop('script_args', None) # will refeed them to the pipeline directly after initializing them
         args.pop('alwayson_scripts', None)
 
@@ -327,6 +329,7 @@ class Api:
             p.outpath_samples = opts.outdir_txt2img_samples
 
             shared.state.begin()
+            shared.state.user_token = txt2imgreq.user_token
             if selectable_scripts is not None:
                 p.script_args = script_args
                 processed = scripts.scripts_txt2img.run(p, *p.script_args) # Need to pass args as list here
@@ -368,6 +371,7 @@ class Api:
         args = vars(populate)
         args.pop('include_init_images', None)  # this is meant to be done by "exclude": True in model, but it's for a reason that I cannot determine.
         args.pop('script_name', None)
+        args.pop('user_token', None)
         args.pop('script_args', None)  # will refeed them to the pipeline directly after initializing them
         args.pop('alwayson_scripts', None)
 
@@ -384,6 +388,7 @@ class Api:
             p.outpath_samples = opts.outdir_img2img_samples
 
             shared.state.begin()
+            shared.state.user_token = img2imgreq.user_token
             if selectable_scripts is not None:
                 p.script_args = script_args
                 processed = scripts.scripts_img2img.run(p, *p.script_args) # Need to pass args as list here
@@ -436,6 +441,17 @@ class Api:
         items = {**{'parameters': geninfo}, **items}
 
         return models.PNGInfoResponse(info=geninfo, items=items)
+
+    def progressapi2(self, req: models.ProgressRequest2 = Depends()):
+        import modules.sd_samplers
+        if shared.state.progress_state:
+            user_token, decoded, sampling_step, sampling_steps = shared.state.progress_state
+            if (req.user_token == user_token):
+                image = modules.sd_samplers.samples_to_image_grid(decoded, 1)
+                pil = encode_pil_to_base64(image)
+                return models.ProgressResponse2(current_image=pil, sampling_step=sampling_step, sampling_steps=sampling_steps)
+
+        return models.ProgressResponse2()
 
     def progressapi(self, req: models.ProgressRequest = Depends()):
         # copy from check_progress_call of ui.py

@@ -61,6 +61,8 @@ def store_latent(decoded):
         if not shared.parallel_processing_allowed:
             shared.state.assign_current_image(sample_to_image(decoded))
 
+    state.progress_state = (state.user_token, decoded, state.sampling_step, state.sampling_steps)
+
 
 def is_sampler_using_eta_noise_seed_delta(p):
     """returns whether sampler from config will use eta noise seed delta for image creation"""

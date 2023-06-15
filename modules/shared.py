@@ -119,6 +119,8 @@ class State:
     server_start = None
     _server_command_signal = threading.Event()
     _server_command: Optional[str] = None
+    user_token = ""
+    progress_state = None
 
     @property
     def need_restart(self) -> bool:
@@ -200,12 +202,16 @@ class State:
         self.interrupted = False
         self.textinfo = None
         self.time_start = time.time()
+        self.user_token = ""
+        self.progress_state = None
 
         devices.torch_gc()
 
     def end(self):
         self.job = ""
         self.job_count = 0
+        self.user_token = ""
+        self.progress_state = None
 
         devices.torch_gc()
 
